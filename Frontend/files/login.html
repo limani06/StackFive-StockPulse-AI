@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StackFive AI</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="auth-wrap">
+  <div class="auth-card panel">
+    <h1>StackFive AI</h1>
+    <div class="tag">Stock &amp; orders, kept as simply as texting someone.</div>
+
+    <div class="tabs">
+      <div class="tab active" data-tab="login">Log in</div>
+      <div class="tab" data-tab="register">Register</div>
+    </div>
+
+    <!-- LOGIN FORM -->
+    <form id="loginForm">
+      <label for="loginEmail">Email</label>
+      <input id="loginEmail" type="email" required placeholder="you@business.com">
+
+      <label for="loginPassword">Password</label>
+      <input id="loginPassword" type="password" required placeholder="••••••••">
+
+      <button class="primary" type="submit">Log in</button>
+      <div id="loginMsg"></div>
+    </form>
+
+    <!-- REGISTER FORM -->
+    <form id="registerForm" style="display:none">
+      <label for="regName">Name</label>
+      <input id="regName" type="text" required placeholder="Full name">
+
+      <label for="regEmail">Email</label>
+      <input id="regEmail" type="email" required placeholder="you@business.com">
+
+      <label for="regPassword">Password</label>
+      <input id="regPassword" type="password" required placeholder="At least 6 characters">
+
+      <label for="regRole">I am a&hellip;</label>
+      <select id="regRole">
+        <option value="OWNER">Business Owner</option>
+        <option value="STAFF">Staff</option>
+        <option value="CUSTOMER">Customer</option>
+      </select>
+
+      <button class="primary" type="submit">Create account</button>
+      <div id="registerMsg"></div>
+    </form>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+  const tabs = document.querySelectorAll('.tab');
+  const loginForm = document.getElementById('loginForm');
+  const registerForm = document.getElementById('registerForm');
+
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      const isLogin = tab.dataset.tab === 'login';
+      loginForm.style.display = isLogin ? 'block' : 'none';
+      registerForm.style.display = isLogin ? 'none' : 'block';
+    });
+  });
+
+  function showMsg(el, text, ok) {
+    el.innerHTML = '<div class="form-msg ' + (ok ? 'ok' : 'error') + '">' + text + '</div>';
+  }
+
+  function routeForRole(role) {
+    if (role === 'OWNER' || role === 'ADMIN') return 'dashboard.html';
+    if (role === 'STAFF') return 'staff.html';
+    return 'customer.html';
+  }
+
+  loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const msg = document.getElementById('loginMsg');
+    msg.innerHTML = '';
+    try {
+      const result = await api('/api/users/login', {
+        method: 'POST',
+        body: JSON.stringify({
+          email: document.getElementById('loginEmail').value,
+          password: document.getElementById('loginPassword').value
+        })
+      });
+      Auth.save(result.token, result.role, result.name);
+      window.location.href = routeForRole(result.role);
+    } catch (err) {
+      showMsg(msg, err.message, false);
+    }
+  });
+
+  registerForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const msg = document.getElementById('registerMsg');
+    msg.innerHTML = '';
+    try {
+      await api('/api/users/register', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: document.getElementById('regName').value,
+          email: document.getElementById('regEmail').value,
+          password: document.getElementById('regPassword').value,
+          role: document.getElementById('regRole').value
+        })
+      });
+      showMsg(msg, 'Account created \u2014 you can log in now.', true);
+      document.querySelector('.tab[data-tab="login"]').click();
+      document.getElementById('loginEmail').value = document.getElementById('regEmail').value;
+    } catch (err) {
+      showMsg(msg, err.message, false);
+    }
+  });
+</script>
+</body>
+</html>

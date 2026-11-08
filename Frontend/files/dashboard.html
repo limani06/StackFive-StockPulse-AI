@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard &mdash; StackFive AI</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="topbar" id="topbar">
+  <div class="brand">StackFive AI</div>
+  <div style="display:flex; align-items:center; gap:14px;">
+    <span class="who"></span>
+    <button data-logout>Log out</button>
+  </div>
+</div>
+
+<div class="page wide">
+  <div class="summary-grid" id="summaryGrid"></div>
+
+  <section class="block">
+    <h2>Low stock</h2>
+    <div class="ledger" id="lowStockList"><div class="empty">Loading&hellip;</div></div>
+  </section>
+
+  <section class="block">
+    <h2>Needs review</h2>
+    <div class="ledger" id="correctionsList"><div class="empty">Loading&hellip;</div></div>
+  </section>
+
+  <section class="block">
+    <h2>All products</h2>
+    <div class="ledger" id="productsList"><div class="empty">Loading&hellip;</div></div>
+  </section>
+</div>
+
+<script src="app.js"></script>
+<script>
+  if (Auth.requireLogin(['OWNER', 'ADMIN'])) {
+    initTopbar(document.getElementById('topbar'));
+    loadDashboard();
+  }
+
+  async function loadDashboard() {
+    try {
+      const summary = await api('/api/dashboard/summary');
+      renderSummary(summary);
+      renderLowStock(summary.lowStockProducts);
+    } catch (err) {
+      document.getElementById('summaryGrid').innerHTML = '<div class="form-msg error">' + err.message + '</div>';
+    }
+
+    try {
+      const products = await api('/api/products');
+      renderProducts(products);
+    } catch (err) { /* summary already shows connection errors */ }
+
+    try {
+      const corrections = await api('/api/corrections/stock-updates');
+      renderCorrections(corrections);
+    } catch (err) { /* non-fatal */ }
+  }
+
+  function renderSummary(s) {
+    document.getElementById('summaryGrid').innerHTML = `
+      <div class="stat"><div class="num">${s.totalProducts}</div><div class="lbl">Products tracked</div></div>
+      <div class="stat alert"><div class="num">${s.lowStockCount}</div><div class="lbl">Low stock</div></div>
+      <div class="stat"><div class="num">${s.totalOrders}</div><div class="lbl">Total orders</div></div>
+      <div class="stat alert"><div class="num">${s.pendingReviewCount}</div><div class="lbl">Needs review</div></div>
+    `;
+  }
+
+  function renderLowStock(items) {
+    const el = document.getElementById('lowStockList');
+    if (!items || items.length === 0) { el.innerHTML = '<div class="empty">Nothing running low right now.</div>'; return; }
+    el.innerHTML = items.map(p => `
+      <div class="ledger-row low">
+        <div class="name">${p.name}</div>
+        <div class="qty">${p.quantity} in stock</div>
+      </div>
+    `).join('');
+  }
+
+  function renderProducts(items) {
+    const el = document.getElementById('productsList');
+    if (!items || items.length === 0) { el.innerHTML = '<div class="empty">No products yet.</div>'; return; }
+    el.innerHTML = items.map(p => `
+      <div class="ledger-row ${p.lowStock ? 'low' : ''}">
+        <div class="name">${p.name}</div>
+        <div class="qty">${p.quantity}</div>
+      </div>
+    `).join('');
+  }
+
+  function renderCorrections(items) {
+    const el = document.getElementById('correctionsList');
+    if (!items || items.length === 0) { el.innerHTML = '<div class="empty">Nothing waiting on review.</div>'; return; }
+    el.innerHTML = items.map(u => `
+      <div class="ledger-row">
+        <div class="name">"${u.rawInput}"</div>
+        <div><span class="stamp ${stampClass(u.status)}">${stampLabel(u.status)}</span></div>
+      </div>
+    `).join('');
+  }
+</script>
+</body>
+</html>
